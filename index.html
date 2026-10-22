@@ -15,7 +15,7 @@
         <header class="bg-indigo-900 text-white p-6 rounded-2xl shadow-lg mb-6 flex flex-col md:flex-row justify-between items-center">
             <div>
                 <h1 class="text-2xl sm:text-3xl font-bold flex items-center gap-2">⏱️ Liquidador de Nómina - Telemando</h1>
-                <p class="text-indigo-200 text-sm mt-1">Aguas de Cartagena S.A. E.S.P. | Auditoría Hora a Hora (Límite 42h)</p>
+                <p class="text-indigo-200 text-sm mt-1">Aguas de Cartagena S.A. E.S.P. | Auditoría Hora a Hora (Límite 42h Lunes-Domingo)</p>
             </div>
             <div class="mt-4 md:mt-0 bg-indigo-800 p-3 rounded-xl border border-indigo-700 text-right">
                 <span class="text-xs text-indigo-300 block">Valor Hora Ordinaria</span>
@@ -277,12 +277,14 @@
             }
         }
 
-        function getISOWeek(date) {
+        function getWeekKey(date) {
+            // Semana laboral estricta Lunes 00:00 a Domingo 23:59 (ISO standard week)
             let d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
-            let dayNum = d.getUTCDay() || 7;
+            let dayNum = d.getUTCDay() || 7; // Lunes=1, Domingo=7
             d.setUTCDate(d.getUTCDate() + 4 - dayNum);
             let yearStart = new Date(Date.UTC(d.getUTCFullYear(),0,1));
-            return Math.ceil((((d - yearStart) / 86400000) + 1) / 7);
+            let weekNo = Math.ceil((((d - yearStart) / 86400000) + 1) / 7);
+            return `${d.getUTCFullYear()}-W${weekNo}`;
         }
 
         function recalcular() { if (turnosCargados.length > 0) procesarLiquidacion(); }
@@ -316,12 +318,13 @@
                     if (next > fin) next = new Date(fin);
                     let segDur = (next - current) / 3600000;
 
-                    let weekKey = `${current.getFullYear()}-W${getISOWeek(current)}`;
+                    let weekKey = getWeekKey(current);
                     if (!acumuladorSemanal[weekKey]) acumuladorSemanal[weekKey] = 0;
 
                     let isExtra = acumuladorSemanal[weekKey] >= 42.0;
                     acumuladorSemanal[weekKey] += segDur;
 
+                    // Evaluación hora por hora exacta (Sábado a Domingo, Nocturno, Festivo)
                     let isFd = esFestivoColombia(current);
                     let hour = current.getHours();
                     let isNight = (hour >= 19 || hour < 6);
