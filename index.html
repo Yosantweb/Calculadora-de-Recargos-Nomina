@@ -1,266 +1,396 @@
 <!DOCTYPE html>
-<html>
+<html lang="es">
 <head>
-  <meta charset="UTF-8">
-  <title>Liquidador y Memoria de Nómina - Telemando</title>
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@stlite/mountable@0.54.0/build/stlite.css">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Liquidador y Memoria de Nómina - Telemando</title>
+    <!-- Tailwind CSS y SheetJS para leer Excel en el navegador -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 </head>
-<body>
-  <div id="root"></div>
-  <script src="https://cdn.jsdelivr.net/npm/@stlite/mountable@0.54.0/build/stlite.js"></script>
-  <script>
-    stlite.mount({
-      requirements: ["pandas", "openpyxl"],
-      entrypoint: "app.py",
-      files: {
-        "app.py": `
-import streamlit as st
-import pandas as pd
-from datetime import datetime, time, timedelta
+<body class="bg-slate-50 text-slate-800 font-sans">
+    <div class="max-w-6xl mx-auto p-4 sm:p-6">
+        
+        <!-- Header -->
+        <header class="bg-indigo-900 text-white p-6 rounded-2xl shadow-lg mb-6 flex flex-col md:flex-row justify-between items-center">
+            <div>
+                <h1 class="text-2xl sm:text-3xl font-bold flex items-center gap-2">⏱️ Liquidador de Nómina - Telemando</h1>
+                <p class="text-indigo-200 text-sm mt-1">Aguas de Cartagena S.A. E.S.P. | Auditoría Hora a Hora (Límite 42h)</p>
+            </div>
+            <div class="mt-4 md:mt-0 bg-indigo-800 p-3 rounded-xl border border-indigo-700 text-right">
+                <span class="text-xs text-indigo-300 block">Valor Hora Ordinaria</span>
+                <span id="lblValorHora" class="text-xl font-bold text-emerald-400">$ 25,109.89 COP</span>
+            </div>
+        </header>
 
-st.set_page_config(
-    page_title="Liquidador de Nómina - Telemando",
-    page_icon="⏱️",
-    layout="wide"
-)
+        <!-- Panel de Configuración Salarial -->
+        <div class="bg-white p-5 rounded-2xl shadow-md mb-6 grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div>
+                <label class="block text-xs font-semibold text-slate-500 uppercase mb-1">Salario Mensual Básico (COP)</label>
+                <input type="number" id="txtSalario" value="4570000" class="w-full p-2.5 border rounded-xl font-medium focus:ring-2 focus:ring-indigo-500 outline-none">
+            </div>
+            <div>
+                <label class="block text-xs font-semibold text-slate-500 uppercase mb-1">Auxilio de Transporte (COP)</label>
+                <input type="number" id="txtAuxTrans" value="162000" class="w-full p-2.5 border rounded-xl font-medium focus:ring-2 focus:ring-indigo-500 outline-none">
+            </div>
+            <div>
+                <label class="block text-xs font-semibold text-slate-500 uppercase mb-1">Divisor Mensual de Horas</label>
+                <select id="selDivisor" class="w-full p-2.5 border rounded-xl font-medium focus:ring-2 focus:ring-indigo-500 outline-none">
+                    <option value="182" selected>182 Horas</option>
+                    <option value="180">180 Horas</option>
+                    <option value="200">200 Horas</option>
+                    <option value="240">240 Horas</option>
+                </select>
+            </div>
+        </div>
 
-def obtener_festivos_colombia(ano):
-    festivos = set()
-    festivos.add(datetime(ano, 1, 1).date())
-    festivos.add(datetime(ano, 5, 1).date())
-    festivos.add(datetime(ano, 7, 20).date())
-    festivos.add(datetime(ano, 8, 7).date())
-    festivos.add(datetime(ano, 12, 8).date())
-    festivos.add(datetime(ano, 12, 25).date())
-    
-    def siguiente_lunes(fec):
-        dias_hasta_lunes = (0 - fec.weekday()) % 7
-        if dias_hasta_lunes == 0:
-            return fec
-        return fec + timedelta(days=dias_hasta_lunes)
+        <!-- Sección de Carga de Archivo -->
+        <div class="bg-white p-6 rounded-2xl shadow-md mb-6 border-2 border-dashed border-indigo-200 text-center">
+            <h2 class="text-lg font-bold text-slate-700 mb-2">📁 Cargar Plantilla Oficial de Aguas de Cartagena (.xlsx)</h2>
+            <p class="text-sm text-slate-500 mb-4">Sube tu archivo mensual (ej. WILMER PARDO - SEPTIEMBRE 2026.xlsx)</p>
+            <input type="file" id="fileExcel" accept=".xlsx, .xls, .csv" class="block mx-auto text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100 cursor-pointer">
+        </div>
 
-    festivos.add(siguiente_lunes(datetime(ano, 1, 6).date()))
-    festivos.add(siguiente_lunes(datetime(ano, 3, 19).date()))
-    festivos.add(siguiente_lunes(datetime(ano, 6, 29).date()))
-    festivos.add(siguiente_lunes(datetime(ano, 8, 15).date()))
-    festivos.add(siguiente_lunes(datetime(ano, 10, 12).date()))
-    festivos.add(siguiente_lunes(datetime(ano, 11, 1).date()))
-    festivos.add(siguiente_lunes(datetime(ano, 11, 11).date()))
-    
-    a = ano % 19
-    b = ano // 100
-    c = ano % 100
-    d = b // 4
-    e = b % 4
-    f = (b + 8) // 25
-    g = (b - f + 1) // 3
-    h = (19 * a + b - d - g + 15) % 30
-    i = c // 4
-    k = c % 4
-    l = (32 + 2 * e + 2 * i - h - k) % 7
-    m = (a + 11 * h + 22 * l) // 451
-    mes_pascua = (h + l - 7 * m + 114) // 31
-    dia_pascua = ((h + l - 7 * m + 114) % 31) + 1
-    domingo_pascua = datetime(ano, mes_pascua, dia_pascua).date()
-    
-    festivos.add(domingo_pascua - timedelta(days=3))
-    festivos.add(domingo_pascua - timedelta(days=2))
-    festivos.add(siguiente_lunes(domingo_pascua + timedelta(days=43)))
-    festivos.add(siguiente_lunes(domingo_pascua + timedelta(days=64)))
-    festivos.add(siguiente_lunes(domingo_pascua + timedelta(days=71)))
-    return festivos
+        <!-- Resultados y Métricas -->
+        <div id="resultsContainer" class="hidden space-y-6">
+            <!-- Métricas Consolidadas -->
+            <div class="bg-white p-6 rounded-2xl shadow-md">
+                <h3 class="text-lg font-bold text-slate-700 mb-4 flex items-center gap-2">📊 Consolidado Oficial de Auditoría</h3>
+                <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                    <div class="bg-slate-50 p-4 rounded-xl border">
+                        <span class="text-xs text-slate-500 block">Total Horas</span>
+                        <span id="metricTotalHoras" class="text-xl font-bold text-slate-800">0.00 h</span>
+                    </div>
+                    <div class="bg-indigo-50 p-4 rounded-xl border border-indigo-100">
+                        <span class="text-xs text-indigo-600 block font-semibold">HED (Ext. Diurna)</span>
+                        <span id="metricHED" class="text-xl font-bold text-indigo-900">0.00 h</span>
+                    </div>
+                    <div class="bg-indigo-50 p-4 rounded-xl border border-indigo-100">
+                        <span class="text-xs text-indigo-600 block font-semibold">HEN (Ext. Nocturna)</span>
+                        <span id="metricHEN" class="text-xl font-bold text-indigo-900">0.00 h</span>
+                    </div>
+                    <div class="bg-indigo-50 p-4 rounded-xl border border-indigo-100">
+                        <span class="text-xs text-indigo-600 block font-semibold">HEDF (Ext. Diurna Dom/Fes)</span>
+                        <span id="metricHEDF" class="text-xl font-bold text-indigo-900">0.00 h</span>
+                    </div>
+                    <div class="bg-indigo-50 p-4 rounded-xl border border-indigo-100">
+                        <span class="text-xs text-indigo-600 block font-semibold">HENF (Ext. Nocturna Dom/Fes)</span>
+                        <span id="metricHENF" class="text-xl font-bold text-indigo-900">0.00 h</span>
+                    </div>
+                    <div class="bg-emerald-50 p-4 rounded-xl border border-emerald-100">
+                        <span class="text-xs text-emerald-600 block font-semibold">RN (Recargo Nocturno)</span>
+                        <span id="metricRN" class="text-xl font-bold text-emerald-900">0.00 h</span>
+                    </div>
+                    <div class="bg-emerald-50 p-4 rounded-xl border border-emerald-100">
+                        <span class="text-xs text-emerald-600 block font-semibold">RNF (Recargo Nocturno Dom/Fes)</span>
+                        <span id="metricRNF" class="text-xl font-bold text-emerald-900">0.00 h</span>
+                    </div>
+                    <div class="bg-emerald-50 p-4 rounded-xl border border-emerald-100">
+                        <span class="text-xs text-emerald-600 block font-semibold">HDF (Festivas Habitual)</span>
+                        <span id="metricHDF" class="text-xl font-bold text-emerald-900">0.00 h</span>
+                    </div>
+                </div>
 
-st.title("⏱️ Liquidador y Memoria de Nómina - Telemando")
-st.markdown("Herramienta oficial con **Soporte para Plantilla RRHH y Simulación Hora a Hora (Límite 42h)**.")
+                <!-- Total Devengado Card -->
+                <div class="mt-6 bg-gradient-to-r from-indigo-900 to-indigo-800 text-white p-6 rounded-2xl flex justify-between items-center shadow-lg">
+                    <div>
+                        <span class="text-indigo-200 text-sm block">Devengado Estimado de Turnos</span>
+                        <span id="metricDevengado" class="text-3xl font-extrabold text-emerald-400">$ 0 COP</span>
+                    </div>
+                    <button onclick="exportarCSV()" class="bg-emerald-500 hover:bg-emerald-600 text-white font-bold py-2.5 px-5 rounded-xl shadow transition duration-200">
+                        📥 Descargar CSV
+                    </button>
+                </div>
+            </div>
 
-with st.sidebar:
-    st.header("⚙️ Parámetros Salariales")
-    salario_base = st.number_input("Salario Mensual Básico (COP)", value=4570000, step=50000)
-    aux_transporte = st.number_input("Auxilio de Transporte (COP)", value=162000, step=10000)
-    divisor_horas = st.selectbox("Divisor Mensual de Horas", [182, 180, 200, 240], index=0)
-    valor_hora_ordinaria = salario_base / divisor_horas
-    st.info(f"💰 **Valor Hora Ordinaria:** $ {valor_hora_ordinaria:,.2f} COP")
+            <!-- Tabla de Detalle -->
+            <div class="bg-white p-6 rounded-2xl shadow-md overflow-x-auto">
+                <h3 class="text-lg font-bold text-slate-700 mb-4">📋 Desglose de Turnos Procesados</h3>
+                <table class="w-full text-left border-collapse text-sm">
+                    <thead>
+                        <tr class="bg-slate-100 text-slate-600 border-b">
+                            <th class="p-3">Entrada</th>
+                            <th class="p-3">Salida</th>
+                            <th class="p-3">Tipo Día</th>
+                            <th class="p-3 text-center">Horas</th>
+                            <th class="p-3 text-center">HED</th>
+                            <th class="p-3 text-center">HEN</th>
+                            <th class="p-3 text-center">HEDF</th>
+                            <th class="p-3 text-center">HENF</th>
+                            <th class="p-3 text-center">RN</th>
+                            <th class="p-3 text-center">RNF</th>
+                            <th class="p-3 text-center">HDF</th>
+                            <th class="p-3 text-right">Subtotal</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tableBody" class="divide-y text-slate-700">
+                        <!-- Inserción dinámica -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
 
-tab1, tab2, tab3 = st.tabs(["📝 Carga de Reporte / Plantilla Oficial", "🧮 Motor de Liquidación Hora a Hora", "📊 Consolidado y Memoria Mensual"])
+    </div>
 
-with tab1:
-    st.subheader("1️⃣ Carga de Plantilla de Turnos (Excel Aguas de Cartagena o CSV)")
-    archivo = st.file_uploader("Selecciona tu archivo (.xlsx o .csv)", type=["csv", "xlsx"])
-    if archivo is not None:
-        try:
-            nuevos = []
-            if archivo.name.endswith('.csv'):
-                df_sub = pd.read_csv(archivo)
-                df_sub.columns = [str(c).strip() for c in df_sub.columns]
-                for _, row in df_sub.iterrows():
-                    if pd.isna(row.get('Entrada')) or pd.isna(row.get('Salida')):
-                        continue
-                    dt_ini = pd.to_datetime(row["Entrada"])
-                    dt_fin = pd.to_datetime(row["Salida"])
-                    duracion = (dt_fin - dt_ini).total_seconds() / 3600.0
-                    es_dom = (dt_ini.weekday() == 6)
-                    es_fes = (dt_ini.date() in obtener_festivos_colombia(dt_ini.year))
-                    t_dia = "Domingo/Festivo" if (es_dom or es_fes) else "Día Hábil"
-                    nuevos.append({"Entrada": str(dt_ini), "Salida": str(dt_fin), "Tipo_Dia": t_dia, "Horas": round(duracion, 2)})
-            else:
-                xls = pd.ExcelFile(archivo)
-                if 'REGISTRO' in xls.sheet_names:
-                    df_reg = pd.read_excel(archivo, sheet_name='REGISTRO')
-                    for idx in range(10, len(df_reg)):
-                        row_vals = df_reg.iloc[idx].values
-                        fec_val = row_vals[0]
-                        if pd.isna(fec_val):
-                            continue
-                        try:
-                            f_date = pd.to_datetime(fec_val).date()
-                        except:
-                            continue
-                        for col_ent, col_sal in [(1, 2), (3, 4), (5, 6)]:
-                            if col_ent >= len(row_vals) or col_sal >= len(row_vals):
-                                continue
-                            ent = row_vals[col_ent]
-                            sal = row_vals[col_sal]
-                            if pd.isna(ent) or pd.isna(sal):
-                                continue
-                            try:
-                                h_ent = float(ent)
-                                h_sal = float(sal)
-                            except:
-                                continue
-                            dt_start = datetime.combine(f_date, time(int(h_ent % 24), 0))
-                            days_add = 0
-                            if h_sal < h_ent:
-                                days_add = 1
-                            elif h_sal == 24:
-                                h_sal = 0
-                                days_add = 1
-                            dt_end = datetime.combine(f_date + timedelta(days=days_add), time(int(h_sal % 24), 0))
-                            duracion = (dt_end - dt_start).total_seconds() / 3600.0
-                            if duracion <= 0:
-                                continue
-                            es_dom = (dt_start.weekday() == 6)
-                            es_fes = (dt_start.date() in obtener_festivos_colombia(dt_start.year))
-                            t_dia = "Domingo/Festivo" if (es_dom or es_fes) else "Día Hábil"
-                            nuevos.append({"Entrada": str(dt_start), "Salida": str(dt_end), "Tipo_Dia": t_dia, "Horas": round(duracion, 2)})
-                else:
-                    df_sub = pd.read_excel(archivo)
-                    df_sub.columns = [str(c).strip() for c in df_sub.columns]
-                    if 'Fecha Entrada' in df_sub.columns and 'Hora' in df_sub.columns:
-                        for _, row in df_sub.iterrows():
-                            if pd.isna(row['Fecha Entrada']) or pd.isna(row['Hora']):
-                                continue
-                            f_in = pd.to_datetime(row['Fecha Entrada']).date()
-                            h_in = row['Hora']
-                            t_in = datetime.strptime(str(h_in), '%H:%M:%S').time() if len(str(h_in)) >= 5 else time(0, 0)
-                            f_out = pd.to_datetime(row['Fecha Salida']).date()
-                            h_out = row['Hora.1']
-                            t_out = datetime.strptime(str(h_out), '%H:%M:%S').time() if len(str(h_out)) >= 5 else time(0, 0)
-                            dt_ini = datetime.combine(f_in, t_in)
-                            dt_fin = datetime.combine(f_out, t_out)
-                            duracion = (dt_fin - dt_ini).total_seconds() / 3600.0
-                            es_dom = (dt_ini.weekday() == 6)
-                            es_fes = (dt_ini.date() in obtener_festivos_colombia(dt_ini.year))
-                            t_dia = "Domingo/Festivo" if (es_dom or es_fes) else "Día Hábil"
-                            nuevos.append({"Entrada": str(dt_ini), "Salida": str(dt_fin), "Tipo_Dia": t_dia, "Horas": round(duracion, 2)})
-            if nuevos:
-                st.session_state['mis_turnos'] = pd.DataFrame(nuevos)
-                st.success(f"¡Plantilla oficial procesada con éxito! Se cargaron {len(nuevos)} segmentos.")
-            else:
-                st.warning("No se encontraron turnos válidos.")
-        except Exception as e:
-            st.error(f"Error al procesar el archivo: {e}")
+    <script>
+        let turnosCargados = [];
+        let resultadosGlobales = [];
 
-    if 'mis_turnos' in st.session_state and not st.session_state['mis_turnos'].empty:
-        st.write("### 📋 Historial de Turnos:")
-        st.dataframe(st.session_state['mis_turnos'], use_container_width=True)
-        if st.button("🗑️ Borrar Historial"):
-            del st.session_state['mis_turnos']
-            if 'resultado_final' in st.session_state:
-                del st.session_state['resultado_final']
-            st.rerun()
+        // Lista de festivos fijos de Colombia
+        function esFestivoColombia(date) {
+            const y = date.getFullYear();
+            const m = date.getMonth() + 1;
+            const d = date.getDate();
+            
+            // Fijos
+            const fijos = [
+                `${y}-1-1`, `${y}-5-1`, `${y}-7-20`, `${y}-8-7`, `${y}-12-8`, `${y}-12-25`
+            ];
+            const dateStr = `${y}-${m}-${d}`;
+            if (fijos.includes(dateStr)) return true;
 
-with tab2:
-    st.subheader("🧮 Motor de Liquidación Hora a Hora (42h)")
-    if 'mis_turnos' in st.session_state and not st.session_state['mis_turnos'].empty:
-        if st.button("🚀 Procesar Liquidación", type="primary"):
-            val_hr = valor_hora_ordinaria
-            df_t = st.session_state['mis_turnos'].copy()
-            df_t['dt_ini'] = pd.to_datetime(df_t['Entrada'])
-            df_t['dt_fin'] = pd.to_datetime(df_t['Salida'])
-            df_t = df_t.sort_values(by='dt_ini')
-            festivos_cache = {}
-            def es_festivo_o_domingo(dt):
-                d = dt.date()
-                if d not in festivos_cache:
-                    festivos_cache[d.year] = obtener_festivos_colombia(d.year)
-                return (d.weekday() == 6) or (d in festivos_cache[d.year])
-            def es_nocturna(dt):
-                t = dt.time()
-                return t >= time(19, 0) or t < time(6, 0)
+            // Función para calcular lunes festivos por ley "Emiliani"
+            function getLunesFestivo(ano, mes, diaOriginal) {
+                let dt = new Date(ano, mes - 1, diaOriginal);
+                let day = dt.getDay();
+                let diff = day === 0 ? 1 : (8 - day) % 7;
+                dt.setDate(dt.getDate() + diff);
+                return `${dt.getFullYear()}-${dt.getMonth()+1}-${dt.getDate()}`;
+            }
 
-            detalles = []
-            acumulador_semanal = {}
-            for _, r in df_t.iterrows():
-                dt_current = r['dt_ini']
-                dt_fin = r['dt_fin']
-                h_tot = r['Horas']
-                turn_hed, turn_hen, turn_hedf, turn_henf = 0.0, 0.0, 0.0, 0.0
-                turn_rn, turn_rnf, turn_hdf, turn_ord_diurna = 0.0, 0.0, 0.0, 0.0
-                while dt_current < dt_fin:
-                    next_dt = min(dt_current + timedelta(hours=1), dt_fin)
-                    segment_duration = (next_dt - dt_current).total_seconds() / 3600.0
-                    iso_w = dt_current.isocalendar()[:2]
-                    if iso_w not in acumulador_semanal:
-                        acumulador_semanal[iso_w] = 0.0
-                    is_extra = acumulador_semanal[iso_w] >= 42.0
-                    acumulador_semanal[iso_w] += segment_duration
-                    is_fd = es_festivo_o_domingo(dt_current)
-                    is_night = es_nocturna(dt_current)
-                    if not is_extra:
-                        if not is_fd:
-                            if is_night: turn_rn += segment_duration
-                            else: turn_ord_diurna += segment_duration
-                        else:
-                            if is_night: turn_rnf += segment_duration
-                            else: turn_hdf += segment_duration
-                    else:
-                        if not is_fd:
-                            if is_night: turn_hen += segment_duration
-                            else: turn_hed += segment_duration
-                        else:
-                            if is_night: turn_henf += segment_duration
-                            else: turn_hedf += segment_duration
-                    dt_current = next_dt
+            const moviles = [
+                getLunesFestivo(y, 1, 6),   // Reyes Magos
+                getLunesFestivo(y, 3, 19),  // San José
+                getLunesFestivo(y, 6, 29),  // San Pedro y San Pablo
+                getLunesFestivo(y, 8, 15),  // Asunción de la Virgen
+                getLunesFestivo(y, 10, 12), // Día de la Raza
+                getLunesFestivo(y, 11, 1),  // Todos los Santos
+                getLunesFestivo(y, 11, 11)  // Independencia de Cartagena
+            ];
 
-                sub = (turn_ord_diurna * val_hr) + (turn_hed * val_hr * 1.25) + (turn_hen * val_hr * 1.75) + (turn_hedf * val_hr * 2.0) + (turn_henf * val_hr * 2.5) + (turn_rn * val_hr * 0.35) + (turn_rnf * val_hr * 1.35) + (turn_hdf * val_hr * 0.75)
-                detalles.append({
-                    "Entrada": r["Entrada"], "Salida": r["Salida"], "Tipo Día": r["Tipo_Dia"], "Total Horas": h_tot,
-                    "HED": round(turn_hed, 2), "HEN": round(turn_hen, 2), "HEDF": round(turn_hedf, 2), "HENF": round(turn_henf, 2),
-                    "RN": round(turn_rn, 2), "RNF": round(turn_rnf, 2), "HDF (Fest. Hab.)": round(turn_hdf, 2), "Subtotal (COP)": round(sub, 2)
-                })
-            st.session_state['resultado_final'] = pd.DataFrame(detalles)
-            st.success("¡Liquidación procesada con éxito!")
-            st.dataframe(st.session_state['resultado_final'], use_container_width=True)
-    else:
-        st.info("Registra o carga turnos primero.")
+            if (moviles.includes(dateStr)) return true;
+            return false;
+        }
 
-with tab3:
-    st.subheader("📊 Consolidado Mensual")
-    if 'resultado_final' in st.session_state and not st.session_state['resultado_final'].empty:
-        df_f = st.session_state['resultado_final']
-        df_f['Mes_Anno'] = pd.to_datetime(df_f['Entrada']).dt.to_period('M').astype(str)
-        meses_disp = sorted(df_f['Mes_Anno'].unique())
-        mes_sel = st.selectbox("Selecciona Periodo", meses_disp)
-        df_filtrado = df_f[df_f['Mes_Anno'] == mes_sel]
-        st.dataframe(df_filtrado.drop(columns=['Mes_Anno']), use_container_width=True)
-        tot_hrs = df_filtrado['Total Horas'].sum()
-        tot_pagar = df_filtrado['Subtotal (COP)'].sum()
-        st.metric("Total Horas", f"{tot_hrs:.2f} h")
-        st.metric(f"💰 Devengado ({mes_sel})", f"$ {tot_pagar:,.2f} COP")
-    else:
-        st.info("Procesa la liquidación para ver el consolidado.")
-        `
-    }, document.getElementById("root"));
-  </script>
+        document.getElementById('fileExcel').addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const data = new Uint8Array(e.target.result);
+                const workbook = XLSX.read(data, {type: 'array'});
+                
+                let turnos = [];
+
+                if (workbook.SheetNames.includes('REGISTRO')) {
+                    const sheet = workbook.Sheets['REGISTRO'];
+                    const json = XLSX.utils.sheet_to_json(sheet, {header: 1});
+                    
+                    for (let i = 10; i < json.length; i++) {
+                        let row = json[i];
+                        if (!row || !row[0]) continue;
+                        
+                        let fechaBase;
+                        if (typeof row[0] === 'number') {
+                            fechaBase = new Date(Math.round((row[0] - (25567 + 2)) * 86400 * 1000));
+                        } else {
+                            fechaBase = new Date(row[0]);
+                        }
+                        if (isNaN(fechaBase)) continue;
+
+                        // Bloques de turnos (Cols 1-2, 3-4, 5-6)
+                        const bloques = [[1, 2], [3, 4], [5, 6]];
+                        bloques.forEach(([cEnt, cSal]) => {
+                            let ent = row[cEnt];
+                            let sal = row[cSal];
+                            if (ent !== undefined && sal !== undefined && ent !== '' && sal !== '') {
+                                let hEnt = parseFloat(ent);
+                                let hSal = parseFloat(sal);
+                                if (!isNaN(hEnt) && !isNaN(hSal)) {
+                                    let dStart = new Date(fechaBase);
+                                    dStart.setHours(Math.floor(hEnt % 24), 0, 0, 0);
+
+                                    let addDays = 0;
+                                    if (hSal < hEnt) addDays = 1;
+                                    else if (hSal === 24) { hSal = 0; addDays = 1; }
+
+                                    let dEnd = new Date(fechaBase);
+                                    dEnd.setDate(dEnd.getDate() + addDays);
+                                    dEnd.setHours(Math.floor(hSal % 24), 0, 0, 0);
+
+                                    let horas = (dEnd - dStart) / 3600000;
+                                    if (horas > 0) {
+                                        turnos.push({ entrada: dStart, salida: dEnd, horas: horas });
+                                    }
+                                }
+                            }
+                        });
+                    }
+                }
+
+                if (turnos.length > 0) {
+                    turnosCargados = turnos;
+                    procesarLiquidacion();
+                } else {
+                    alert("No se pudieron extraer turnos de la hoja REGISTRO. Verifique el archivo.");
+                }
+            };
+            reader.readAsArrayBuffer(file);
+        });
+
+        function getISOWeek(date) {
+            let d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+            let dayNum = d.getUTCDay() || 7;
+            d.setUTCDate(d.getUTCDate() + 4 - dayNum);
+            let yearStart = new Date(Date.UTC(d.getUTCFullYear(),0,1));
+            return Math.ceil((((d - yearStart) / 86400000) + 1) / 7);
+        }
+
+        function procesarLiquidacion() {
+            const salario = parseFloat(document.getElementById('txtSalario').value) || 4570000;
+            const divisor = parseFloat(document.getElementById('selDivisor').value) || 182;
+            const valHr = salario / divisor;
+
+            document.getElementById('lblValorHora').innerText = `$ ${valHr.toLocaleString('es-CO', {minimumFractionDigits: 2, maximumFractionDigits: 2})} COP`;
+
+            turnosCargados.sort((a, b) => a.entrada - b.entrada);
+            let acumuladorSemanal = {};
+            let resultados = [];
+
+            turnosCargados.forEach(t => {
+                let current = new Date(t.entrada);
+                let fin = new Date(t.salida);
+                let hTotal = t.horas;
+
+                let tHED = 0, tHEN = 0, tHEDF = 0, tHENF = 0;
+                let tRN = 0, tRNF = 0, tHDF = 0, tOrdDiurna = 0;
+
+                while (current < fin) {
+                    let next = new Date(current);
+                    next.setHours(next.getHours() + 1);
+                    if (next > fin) next = new Date(fin);
+                    let segDur = (next - current) / 3600000;
+
+                    let weekKey = `${current.getFullYear()}-W${getISOWeek(current)}`;
+                    if (!acumuladorSemanal[weekKey]) acumuladorSemanal[weekKey] = 0;
+
+                    let isExtra = acumuladorSemanal[weekKey] >= 42.0;
+                    acumuladorSemanal[weekKey] += segDur;
+
+                    let isFd = (current.getDay() === 0) || esFestivoColombia(current);
+                    let hour = current.getHours();
+                    let isNight = (hour >= 19 || hour < 6);
+
+                    if (!isExtra) {
+                        if (!isFd) {
+                            if (isNight) tRN += segDur;
+                            else tOrdDiurna += segDur;
+                        } else {
+                            if (isNight) tRNF += segDur;
+                            else tHDF += segDur;
+                        }
+                    } else {
+                        if (!isFd) {
+                            if (isNight) tHEN += segDur;
+                            else tHED += segDur;
+                        } else {
+                            if (isNight) tHENF += segDur;
+                            else tHEDF += segDur;
+                        }
+                    }
+                    current = next;
+                }
+
+                let subtotal = (tOrdDiurna * valHr) +
+                               (tHED * valHr * 1.25) +
+                               (tHEN * valHr * 1.75) +
+                               (tHEDF * valHr * 2.0) +
+                               (tHENF * valHr * 2.5) +
+                               (tRN * valHr * 0.35) +
+                               (tRNF * valHr * 1.35) +
+                               (tHDF * valHr * 0.75);
+
+                resultados.push({
+                    entrada: t.entrada.toLocaleString(),
+                    salida: t.salida.toLocaleString(),
+                    tipoDia: (t.entrada.getDay() === 0 || esFestivoColombia(t.entrada)) ? "Domingo/Festivo" : "Día Hábil",
+                    totalHoras: hTotal.toFixed(2),
+                    hed: tHED.toFixed(2),
+                    hen: tHEN.toFixed(2),
+                    hedf: tHEDF.toFixed(2),
+                    henf: tHENF.toFixed(2),
+                    rn: tRN.toFixed(2),
+                    rnf: tRNF.toFixed(2),
+                    hdf: tHDF.toFixed(2),
+                    subtotal: subtotal
+                });
+            });
+
+            resultadosGlobales = resultados;
+            renderizarResultados();
+        }
+
+        function renderizarResultados() {
+            let totH = 0, totHED = 0, totHEN = 0, totHEDF = 0, totHENF = 0, totRN = 0, totRNF = 0, totHDF = 0, totDinero = 0;
+            let tbody = document.getElementById('tableBody');
+            tbody.innerHTML = '';
+
+            resultadosGlobales.forEach(r => {
+                totH += parseFloat(r.totalHoras);
+                totHED += parseFloat(r.hed);
+                totHEN += parseFloat(r.hen);
+                totHEDF += parseFloat(r.hedf);
+                totHENF += parseFloat(r.henf);
+                totRN += parseFloat(r.rn);
+                totRNF += parseFloat(r.rnf);
+                totHDF += parseFloat(r.hdf);
+                totDinero += r.subtotal;
+
+                tbody.innerHTML += `
+                    <tr class="hover:bg-slate-50 border-b">
+                        <td class="p-3">${r.entrada}</td>
+                        <td class="p-3">${r.salida}</td>
+                        <td class="p-3 font-semibold text-indigo-600">${r.tipoDia}</td>
+                        <td class="p-3 text-center font-bold">${r.totalHoras}</td>
+                        <td class="p-3 text-center">${r.hed}</td>
+                        <td class="p-3 text-center">${r.hen}</td>
+                        <td class="p-3 text-center">${r.hedf}</td>
+                        <td class="p-3 text-center">${r.henf}</td>
+                        <td class="p-3 text-center">${r.rn}</td>
+                        <td class="p-3 text-center">${r.rnf}</td>
+                        <td class="p-3 text-center">${r.hdf}</td>
+                        <td class="p-3 text-right font-bold text-emerald-600">$ ${r.subtotal.toLocaleString('es-CO', {maximumFractionDigits: 0})}</td>
+                    </tr>
+                `;
+            });
+
+            document.getElementById('metricTotalHoras').innerText = `${totH.toFixed(2)} h`;
+            document.getElementById('metricHED').innerText = `${totHED.toFixed(2)} h`;
+            document.getElementById('metricHEN').innerText = `${totHEN.toFixed(2)} h`;
+            document.getElementById('metricHEDF').innerText = `${totHEDF.toFixed(2)} h`;
+            document.getElementById('metricHENF').innerText = `${totHENF.toFixed(2)} h`;
+            document.getElementById('metricRN').innerText = `${totRN.toFixed(2)} h`;
+            document.getElementById('metricRNF').innerText = `${totRNF.toFixed(2)} h`;
+            document.getElementById('metricHDF').innerText = `${totHDF.toFixed(2)} h`;
+            document.getElementById('metricDevengado').innerText = `$ ${totDinero.toLocaleString('es-CO', {maximumFractionDigits: 0})} COP`;
+
+            document.getElementById('resultsContainer').classList.remove('hidden');
+        }
+
+        function exportarCSV() {
+            let csvContent = "data:text/csv;charset=utf-8,Entrada,Salida,Tipo Día,Total Horas,HED,HEN,HEDF,HENF,RN,RNF,HDF,Subtotal\n";
+            resultadosGlobales.forEach(r => {
+                csvContent += `"${r.entrada}","${r.salid}","${r.tipoDia}",${r.totalHoras},${r.hed},${r.hen},${r.hedf},${r.henf},${r.rn},${r.rnf},${r.hdf},${r.subtotal}\n`;
+            });
+            let encodedUri = encodeURI(csvContent);
+            let link = document.createElement("a");
+            link.setAttribute("href", encodedUri);
+            link.setAttribute("download", "consolidado_nomina_telemando.csv");
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+    </script>
 </body>
 </html>
