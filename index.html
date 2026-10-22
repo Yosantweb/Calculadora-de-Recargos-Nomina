@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Liquidador y Memoria de Nómina - Telemando</title>
+    <title>Auditoría de Nómina - Telemando</title>
     <!-- Tailwind CSS y SheetJS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
@@ -14,8 +14,8 @@
         <!-- Header -->
         <header class="bg-indigo-900 text-white p-6 rounded-2xl shadow-lg mb-6 flex flex-col md:flex-row justify-between items-center">
             <div>
-                <h1 class="text-2xl sm:text-3xl font-bold flex items-center gap-2">⏱️ Liquidador de Nómina - Telemando</h1>
-                <p class="text-indigo-200 text-sm mt-1">Aguas de Cartagena S.A. E.S.P. | Auditoría Hora a Hora (Límite 42h Lunes-Domingo)</p>
+                <h1 class="text-2xl sm:text-3xl font-bold flex items-center gap-2">⏱️ Auditoría de Nómina - Telemando</h1>
+                <p class="text-indigo-200 text-sm mt-1">Aguas de Cartagena S.A. E.S.P. | Motor Hora a Hora (Límite 42h Lunes-Domingo)</p>
             </div>
             <div class="mt-4 md:mt-0 bg-indigo-800 p-3 rounded-xl border border-indigo-700 text-right">
                 <span class="text-xs text-indigo-300 block">Valor Hora Ordinaria</span>
@@ -23,7 +23,7 @@
             </div>
         </header>
 
-        <!-- Panel de Configuración Salarial -->
+        <!-- Panel Salarial -->
         <div class="bg-white p-5 rounded-2xl shadow-md mb-6 grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div>
                 <label class="block text-xs font-semibold text-slate-500 uppercase mb-1">Salario Mensual Básico (COP)</label>
@@ -44,10 +44,10 @@
             </div>
         </div>
 
-        <!-- Selector de Periodos Guardados y Carga de Archivo -->
+        <!-- Carga y Memoria -->
         <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
             <div class="bg-white p-6 rounded-2xl shadow-md border-2 border-dashed border-indigo-200 text-center flex flex-col justify-center">
-                <h2 class="text-base font-bold text-slate-700 mb-2">📁 Cargar Nueva Plantilla (.xlsx)</h2>
+                <h2 class="text-base font-bold text-slate-700 mb-2">📁 Cargar Plantilla (.xlsx)</h2>
                 <input type="file" id="fileExcel" accept=".xlsx, .xls, .csv" class="block mx-auto text-xs text-slate-500 file:mr-3 file:py-2 file:px-3 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100 cursor-pointer">
             </div>
             <div class="bg-white p-6 rounded-2xl shadow-md border flex flex-col justify-center">
@@ -57,17 +57,16 @@
                         <option value="">-- Selecciona un periodo guardado --</option>
                     </select>
                     <button onclick="cargarPeriodoGuardado()" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold px-4 py-2.5 rounded-xl text-sm transition">Cargar</button>
-                    <button onclick="borrarPeriodoActual()" class="bg-rose-500 hover:bg-rose-600 text-white font-bold px-3 py-2.5 rounded-xl text-sm transition" title="Eliminar periodo seleccionado">🗑️</button>
+                    <button onclick="borrarPeriodoActual()" class="bg-rose-500 hover:bg-rose-600 text-white font-bold px-3 py-2.5 rounded-xl text-sm transition" title="Eliminar">🗑️</button>
                 </div>
             </div>
         </div>
 
-        <!-- Resultados y Métricas -->
+        <!-- Resultados -->
         <div id="resultsContainer" class="hidden space-y-6">
-            <!-- Métricas Consolidadas -->
             <div class="bg-white p-6 rounded-2xl shadow-md">
                 <div class="flex justify-between items-center mb-4">
-                    <h3 class="text-lg font-bold text-slate-700 flex items-center gap-2">📊 Consolidado Oficial de Auditoría</h3>
+                    <h3 class="text-lg font-bold text-slate-700">📊 Consolidado Oficial de Auditoría</h3>
                     <span id="badgePeriodo" class="bg-indigo-100 text-indigo-800 text-xs font-semibold px-3 py-1 rounded-full">Periodo Activo</span>
                 </div>
                 <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
@@ -105,19 +104,17 @@
                     </div>
                 </div>
 
-                <!-- Total Devengado Card -->
                 <div class="mt-6 bg-gradient-to-r from-indigo-900 to-indigo-800 text-white p-6 rounded-2xl flex justify-between items-center shadow-lg">
                     <div>
                         <span class="text-indigo-200 text-sm block">Devengado Estimado de Turnos</span>
                         <span id="metricDevengado" class="text-3xl font-extrabold text-emerald-400">$ 0 COP</span>
                     </div>
-                    <button onclick="exportarCSV()" class="bg-emerald-500 hover:bg-emerald-600 text-white font-bold py-2.5 px-5 rounded-xl shadow transition duration-200">
+                    <button onclick="exportarCSV()" class="bg-emerald-500 hover:bg-emerald-600 text-white font-bold py-2.5 px-5 rounded-xl shadow transition">
                         📥 Descargar CSV
                     </button>
                 </div>
             </div>
 
-            <!-- Tabla de Detalle -->
             <div class="bg-white p-6 rounded-2xl shadow-md overflow-x-auto">
                 <h3 class="text-lg font-bold text-slate-700 mb-4">📋 Desglose de Turnos Procesados</h3>
                 <table class="w-full text-left border-collapse text-sm">
@@ -137,13 +134,10 @@
                             <th class="p-3 text-right">Subtotal</th>
                         </tr>
                     </thead>
-                    <tbody id="tableBody" class="divide-y text-slate-700">
-                        <!-- Inserción dinámica -->
-                    </tbody>
+                    <tbody id="tableBody" class="divide-y text-slate-700"></tbody>
                 </table>
             </div>
         </div>
-
     </div>
 
     <script>
@@ -151,9 +145,7 @@
         let resultadosGlobales = [];
         let nombrePeriodoActual = "";
 
-        document.addEventListener("DOMContentLoaded", () => {
-            actualizarSelectPeriodos();
-        });
+        document.addEventListener("DOMContentLoaded", () => { actualizarSelectPeriodos(); });
 
         function esFestivoColombia(date) {
             const y = date.getFullYear();
@@ -190,32 +182,45 @@
                     const workbook = XLSX.read(data, {type: 'array'});
                     let turnos = [];
 
-                    if (workbook.SheetNames.includes('REGISTRO')) {
-                        const sheet = workbook.Sheets['REGISTRO'];
-                        const json = XLSX.utils.sheet_to_json(sheet, {header: 1});
-                        
-                        for (let i = 10; i < json.length; i++) {
-                            let row = json[i];
-                            if (!row || !row[0]) continue;
-                            let fechaBase = typeof row[0] === 'number' ? new Date(Math.round((row[0] - (25567 + 2)) * 86400 * 1000)) : new Date(row[0]);
-                            if (isNaN(fechaBase)) continue;
+                    const sheet = workbook.Sheets[workbook.SheetNames[0]];
+                    const json = XLSX.utils.sheet_to_json(sheet, {header: 1});
 
-                            [[1, 2], [3, 4], [5, 6]].forEach(([cEnt, cSal]) => {
-                                let ent = row[cEnt], sal = row[cSal];
-                                if (ent !== undefined && sal !== undefined && ent !== '' && sal !== '') {
-                                    let hEnt = parseFloat(ent), hSal = parseFloat(sal);
-                                    if (!isNaN(hEnt) && !isNaN(hSal)) {
-                                        let dStart = new Date(fechaBase);
-                                        dStart.setHours(Math.floor(hEnt % 24), 0, 0, 0);
-                                        let addDays = hSal < hEnt ? 1 : (hSal === 24 ? (hSal = 0, 1) : 0);
-                                        let dEnd = new Date(fechaBase);
-                                        dEnd.setDate(dEnd.getDate() + addDays);
-                                        dEnd.setHours(Math.floor(hSal % 24), 0, 0, 0);
-                                        let horas = (dEnd - dStart) / 3600000;
-                                        if (horas > 0) turnos.push({ entrada: dStart.toISOString(), salida: dEnd.toISOString(), horas: horas });
+                    // Leer desde la fila 1 (asumiendo encabezados en fila 0)
+                    for (let i = 1; i < json.length; i++) {
+                        let row = json[i];
+                        if (!row || !row[0]) continue;
+
+                        // Recorremos columnas en parejas: (1,2) para FechaEntrada/HoraEntrada y (3,4) para FechaSalida/HoraSalida, etc.
+                        // Según tu plantilla: Col 1 = Fecha Entrada, Col 2 = Hora Entrada, Col 3 = Fecha Salida, Col 4 = Hora Salida
+                        for (let colIdx = 1; colIdx < row.length; colIdx += 2) {
+                            let fEntVal = row[colIdx];
+                            let hEntVal = row[colIdx+1];
+                            
+                            if (fEntVal !== undefined && hEntVal !== undefined && fEntVal !== '' && hEntVal !== '') {
+                                let dEnt = typeof fEntVal === 'number' ? new Date(Math.round((fEntVal - (25567 + 2)) * 86400 * 1000)) : new Date(fEntVal);
+                                if (isNaN(dEnt)) continue;
+
+                                let horaNum = parseFloat(hEntVal);
+                                if (isNaN(horaNum)) continue;
+
+                                dEnt.setHours(Math.floor(horaNum), Math.round((horaNum % 1) * 60), 0, 0);
+
+                                // Buscamos la fecha y hora de salida en las siguientes 2 columnas (colIdx+2, colIdx+3)
+                                let fSalVal = row[colIdx+2];
+                                let hSalVal = row[colIdx+3];
+
+                                if (fSalVal !== undefined && hSalVal !== undefined && fSalVal !== '' && hSalVal !== '') {
+                                    let dSal = typeof fSalVal === 'number' ? new Date(Math.round((fSalVal - (25567 + 2)) * 86400 * 1000)) : new Date(fSalVal);
+                                    let hSalNum = parseFloat(hSalVal);
+                                    if (!isNaN(dSal) && !isNaN(hSalNum)) {
+                                        dSal.setHours(Math.floor(hSalNum), Math.round((hSalNum % 1) * 60), 0, 0);
+                                        let horas = (dSal - dEnt) / 3600000;
+                                        if (horas > 0) {
+                                            turnos.push({ entrada: dEnt.toISOString(), salida: dSal.toISOString(), horas: horas });
+                                        }
                                     }
                                 }
-                            });
+                            }
                         }
                     }
 
@@ -224,11 +229,11 @@
                         guardarEnMemoriaLocal(nombrePeriodoActual, turnosCargados);
                         procesarLiquidacion();
                     } else {
-                        alert("No se pudieron extraer turnos de la hoja REGISTRO.");
+                        alert("No se pudieron extraer turnos. Revisa que las columnas de fechas y horas estén bien diligenciadas.");
                     }
                 } catch(err) {
                     console.error(err);
-                    alert("Ocurrió un error al leer el archivo Excel.");
+                    alert("Error al leer el archivo Excel.");
                 }
             };
             reader.readAsArrayBuffer(file);
@@ -256,7 +261,7 @@
 
         function cargarPeriodoGuardado() {
             let nombre = document.getElementById('selPeriodosGuardados').value;
-            if (!nombre) { alert("Selecciona un periodo de la lista."); return; }
+            if (!nombre) { alert("Selecciona un periodo."); return; }
             let guardados = JSON.parse(localStorage.getItem('periodos_nomina') || '{}');
             if (guardados[nombre]) {
                 nombrePeriodoActual = nombre;
@@ -267,8 +272,8 @@
 
         function borrarPeriodoActual() {
             let nombre = document.getElementById('selPeriodosGuardados').value;
-            if (!nombre) { alert("Selecciona un periodo para borrar."); return; }
-            if (confirm(`¿Seguro que deseas eliminar el periodo '${nombre}' de la memoria?`)) {
+            if (!nombre) { alert("Selecciona un periodo."); return; }
+            if (confirm(`¿Eliminar '${nombre}'?`)) {
                 let guardados = JSON.parse(localStorage.getItem('periodos_nomina') || '{}');
                 delete guardados[nombre];
                 localStorage.setItem('periodos_nomina', JSON.stringify(guardados));
@@ -278,13 +283,11 @@
         }
 
         function getWeekKey(date) {
-            // Semana laboral estricta Lunes 00:00 a Domingo 23:59 (ISO standard week)
             let d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
-            let dayNum = d.getUTCDay() || 7; // Lunes=1, Domingo=7
+            let dayNum = d.getUTCDay() || 7;
             d.setUTCDate(d.getUTCDate() + 4 - dayNum);
             let yearStart = new Date(Date.UTC(d.getUTCFullYear(),0,1));
-            let weekNo = Math.ceil((((d - yearStart) / 86400000) + 1) / 7);
-            return `${d.getUTCFullYear()}-W${weekNo}`;
+            return `${d.getUTCFullYear()}-W${Math.ceil((((d - yearStart) / 86400000) + 1) / 7)}`;
         }
 
         function recalcular() { if (turnosCargados.length > 0) procesarLiquidacion(); }
@@ -324,7 +327,6 @@
                     let isExtra = acumuladorSemanal[weekKey] >= 42.0;
                     acumuladorSemanal[weekKey] += segDur;
 
-                    // Evaluación hora por hora exacta (Sábado a Domingo, Nocturno, Festivo)
                     let isFd = esFestivoColombia(current);
                     let hour = current.getHours();
                     let isNight = (hour >= 19 || hour < 6);
