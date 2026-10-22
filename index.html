@@ -1,1 +1,266 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Liquidador y Memoria de Nómina - Telemando</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@stlite/mountable@0.54.0/build/stlite.css">
+</head>
+<body>
+  <div id="root"></div>
+  <script src="https://cdn.jsdelivr.net/npm/@stlite/mountable@0.54.0/build/stlite.js"></script>
+  <script>
+    stlite.mount({
+      requirements: ["pandas", "openpyxl"],
+      entrypoint: "app.py",
+      files: {
+        "app.py": `
+import streamlit as st
+import pandas as pd
+from datetime import datetime, time, timedelta
 
+st.set_page_config(
+    page_title="Liquidador de Nómina - Telemando",
+    page_icon="⏱️",
+    layout="wide"
+)
+
+def obtener_festivos_colombia(ano):
+    festivos = set()
+    festivos.add(datetime(ano, 1, 1).date())
+    festivos.add(datetime(ano, 5, 1).date())
+    festivos.add(datetime(ano, 7, 20).date())
+    festivos.add(datetime(ano, 8, 7).date())
+    festivos.add(datetime(ano, 12, 8).date())
+    festivos.add(datetime(ano, 12, 25).date())
+    
+    def siguiente_lunes(fec):
+        dias_hasta_lunes = (0 - fec.weekday()) % 7
+        if dias_hasta_lunes == 0:
+            return fec
+        return fec + timedelta(days=dias_hasta_lunes)
+
+    festivos.add(siguiente_lunes(datetime(ano, 1, 6).date()))
+    festivos.add(siguiente_lunes(datetime(ano, 3, 19).date()))
+    festivos.add(siguiente_lunes(datetime(ano, 6, 29).date()))
+    festivos.add(siguiente_lunes(datetime(ano, 8, 15).date()))
+    festivos.add(siguiente_lunes(datetime(ano, 10, 12).date()))
+    festivos.add(siguiente_lunes(datetime(ano, 11, 1).date()))
+    festivos.add(siguiente_lunes(datetime(ano, 11, 11).date()))
+    
+    a = ano % 19
+    b = ano // 100
+    c = ano % 100
+    d = b // 4
+    e = b % 4
+    f = (b + 8) // 25
+    g = (b - f + 1) // 3
+    h = (19 * a + b - d - g + 15) % 30
+    i = c // 4
+    k = c % 4
+    l = (32 + 2 * e + 2 * i - h - k) % 7
+    m = (a + 11 * h + 22 * l) // 451
+    mes_pascua = (h + l - 7 * m + 114) // 31
+    dia_pascua = ((h + l - 7 * m + 114) % 31) + 1
+    domingo_pascua = datetime(ano, mes_pascua, dia_pascua).date()
+    
+    festivos.add(domingo_pascua - timedelta(days=3))
+    festivos.add(domingo_pascua - timedelta(days=2))
+    festivos.add(siguiente_lunes(domingo_pascua + timedelta(days=43)))
+    festivos.add(siguiente_lunes(domingo_pascua + timedelta(days=64)))
+    festivos.add(siguiente_lunes(domingo_pascua + timedelta(days=71)))
+    return festivos
+
+st.title("⏱️ Liquidador y Memoria de Nómina - Telemando")
+st.markdown("Herramienta oficial con **Soporte para Plantilla RRHH y Simulación Hora a Hora (Límite 42h)**.")
+
+with st.sidebar:
+    st.header("⚙️ Parámetros Salariales")
+    salario_base = st.number_input("Salario Mensual Básico (COP)", value=4570000, step=50000)
+    aux_transporte = st.number_input("Auxilio de Transporte (COP)", value=162000, step=10000)
+    divisor_horas = st.selectbox("Divisor Mensual de Horas", [182, 180, 200, 240], index=0)
+    valor_hora_ordinaria = salario_base / divisor_horas
+    st.info(f"💰 **Valor Hora Ordinaria:** $ {valor_hora_ordinaria:,.2f} COP")
+
+tab1, tab2, tab3 = st.tabs(["📝 Carga de Reporte / Plantilla Oficial", "🧮 Motor de Liquidación Hora a Hora", "📊 Consolidado y Memoria Mensual"])
+
+with tab1:
+    st.subheader("1️⃣ Carga de Plantilla de Turnos (Excel Aguas de Cartagena o CSV)")
+    archivo = st.file_uploader("Selecciona tu archivo (.xlsx o .csv)", type=["csv", "xlsx"])
+    if archivo is not None:
+        try:
+            nuevos = []
+            if archivo.name.endswith('.csv'):
+                df_sub = pd.read_csv(archivo)
+                df_sub.columns = [str(c).strip() for c in df_sub.columns]
+                for _, row in df_sub.iterrows():
+                    if pd.isna(row.get('Entrada')) or pd.isna(row.get('Salida')):
+                        continue
+                    dt_ini = pd.to_datetime(row["Entrada"])
+                    dt_fin = pd.to_datetime(row["Salida"])
+                    duracion = (dt_fin - dt_ini).total_seconds() / 3600.0
+                    es_dom = (dt_ini.weekday() == 6)
+                    es_fes = (dt_ini.date() in obtener_festivos_colombia(dt_ini.year))
+                    t_dia = "Domingo/Festivo" if (es_dom or es_fes) else "Día Hábil"
+                    nuevos.append({"Entrada": str(dt_ini), "Salida": str(dt_fin), "Tipo_Dia": t_dia, "Horas": round(duracion, 2)})
+            else:
+                xls = pd.ExcelFile(archivo)
+                if 'REGISTRO' in xls.sheet_names:
+                    df_reg = pd.read_excel(archivo, sheet_name='REGISTRO')
+                    for idx in range(10, len(df_reg)):
+                        row_vals = df_reg.iloc[idx].values
+                        fec_val = row_vals[0]
+                        if pd.isna(fec_val):
+                            continue
+                        try:
+                            f_date = pd.to_datetime(fec_val).date()
+                        except:
+                            continue
+                        for col_ent, col_sal in [(1, 2), (3, 4), (5, 6)]:
+                            if col_ent >= len(row_vals) or col_sal >= len(row_vals):
+                                continue
+                            ent = row_vals[col_ent]
+                            sal = row_vals[col_sal]
+                            if pd.isna(ent) or pd.isna(sal):
+                                continue
+                            try:
+                                h_ent = float(ent)
+                                h_sal = float(sal)
+                            except:
+                                continue
+                            dt_start = datetime.combine(f_date, time(int(h_ent % 24), 0))
+                            days_add = 0
+                            if h_sal < h_ent:
+                                days_add = 1
+                            elif h_sal == 24:
+                                h_sal = 0
+                                days_add = 1
+                            dt_end = datetime.combine(f_date + timedelta(days=days_add), time(int(h_sal % 24), 0))
+                            duracion = (dt_end - dt_start).total_seconds() / 3600.0
+                            if duracion <= 0:
+                                continue
+                            es_dom = (dt_start.weekday() == 6)
+                            es_fes = (dt_start.date() in obtener_festivos_colombia(dt_start.year))
+                            t_dia = "Domingo/Festivo" if (es_dom or es_fes) else "Día Hábil"
+                            nuevos.append({"Entrada": str(dt_start), "Salida": str(dt_end), "Tipo_Dia": t_dia, "Horas": round(duracion, 2)})
+                else:
+                    df_sub = pd.read_excel(archivo)
+                    df_sub.columns = [str(c).strip() for c in df_sub.columns]
+                    if 'Fecha Entrada' in df_sub.columns and 'Hora' in df_sub.columns:
+                        for _, row in df_sub.iterrows():
+                            if pd.isna(row['Fecha Entrada']) or pd.isna(row['Hora']):
+                                continue
+                            f_in = pd.to_datetime(row['Fecha Entrada']).date()
+                            h_in = row['Hora']
+                            t_in = datetime.strptime(str(h_in), '%H:%M:%S').time() if len(str(h_in)) >= 5 else time(0, 0)
+                            f_out = pd.to_datetime(row['Fecha Salida']).date()
+                            h_out = row['Hora.1']
+                            t_out = datetime.strptime(str(h_out), '%H:%M:%S').time() if len(str(h_out)) >= 5 else time(0, 0)
+                            dt_ini = datetime.combine(f_in, t_in)
+                            dt_fin = datetime.combine(f_out, t_out)
+                            duracion = (dt_fin - dt_ini).total_seconds() / 3600.0
+                            es_dom = (dt_ini.weekday() == 6)
+                            es_fes = (dt_ini.date() in obtener_festivos_colombia(dt_ini.year))
+                            t_dia = "Domingo/Festivo" if (es_dom or es_fes) else "Día Hábil"
+                            nuevos.append({"Entrada": str(dt_ini), "Salida": str(dt_fin), "Tipo_Dia": t_dia, "Horas": round(duracion, 2)})
+            if nuevos:
+                st.session_state['mis_turnos'] = pd.DataFrame(nuevos)
+                st.success(f"¡Plantilla oficial procesada con éxito! Se cargaron {len(nuevos)} segmentos.")
+            else:
+                st.warning("No se encontraron turnos válidos.")
+        except Exception as e:
+            st.error(f"Error al procesar el archivo: {e}")
+
+    if 'mis_turnos' in st.session_state and not st.session_state['mis_turnos'].empty:
+        st.write("### 📋 Historial de Turnos:")
+        st.dataframe(st.session_state['mis_turnos'], use_container_width=True)
+        if st.button("🗑️ Borrar Historial"):
+            del st.session_state['mis_turnos']
+            if 'resultado_final' in st.session_state:
+                del st.session_state['resultado_final']
+            st.rerun()
+
+with tab2:
+    st.subheader("🧮 Motor de Liquidación Hora a Hora (42h)")
+    if 'mis_turnos' in st.session_state and not st.session_state['mis_turnos'].empty:
+        if st.button("🚀 Procesar Liquidación", type="primary"):
+            val_hr = valor_hora_ordinaria
+            df_t = st.session_state['mis_turnos'].copy()
+            df_t['dt_ini'] = pd.to_datetime(df_t['Entrada'])
+            df_t['dt_fin'] = pd.to_datetime(df_t['Salida'])
+            df_t = df_t.sort_values(by='dt_ini')
+            festivos_cache = {}
+            def es_festivo_o_domingo(dt):
+                d = dt.date()
+                if d not in festivos_cache:
+                    festivos_cache[d.year] = obtener_festivos_colombia(d.year)
+                return (d.weekday() == 6) or (d in festivos_cache[d.year])
+            def es_nocturna(dt):
+                t = dt.time()
+                return t >= time(19, 0) or t < time(6, 0)
+
+            detalles = []
+            acumulador_semanal = {}
+            for _, r in df_t.iterrows():
+                dt_current = r['dt_ini']
+                dt_fin = r['dt_fin']
+                h_tot = r['Horas']
+                turn_hed, turn_hen, turn_hedf, turn_henf = 0.0, 0.0, 0.0, 0.0
+                turn_rn, turn_rnf, turn_hdf, turn_ord_diurna = 0.0, 0.0, 0.0, 0.0
+                while dt_current < dt_fin:
+                    next_dt = min(dt_current + timedelta(hours=1), dt_fin)
+                    segment_duration = (next_dt - dt_current).total_seconds() / 3600.0
+                    iso_w = dt_current.isocalendar()[:2]
+                    if iso_w not in acumulador_semanal:
+                        acumulador_semanal[iso_w] = 0.0
+                    is_extra = acumulador_semanal[iso_w] >= 42.0
+                    acumulador_semanal[iso_w] += segment_duration
+                    is_fd = es_festivo_o_domingo(dt_current)
+                    is_night = es_nocturna(dt_current)
+                    if not is_extra:
+                        if not is_fd:
+                            if is_night: turn_rn += segment_duration
+                            else: turn_ord_diurna += segment_duration
+                        else:
+                            if is_night: turn_rnf += segment_duration
+                            else: turn_hdf += segment_duration
+                    else:
+                        if not is_fd:
+                            if is_night: turn_hen += segment_duration
+                            else: turn_hed += segment_duration
+                        else:
+                            if is_night: turn_henf += segment_duration
+                            else: turn_hedf += segment_duration
+                    dt_current = next_dt
+
+                sub = (turn_ord_diurna * val_hr) + (turn_hed * val_hr * 1.25) + (turn_hen * val_hr * 1.75) + (turn_hedf * val_hr * 2.0) + (turn_henf * val_hr * 2.5) + (turn_rn * val_hr * 0.35) + (turn_rnf * val_hr * 1.35) + (turn_hdf * val_hr * 0.75)
+                detalles.append({
+                    "Entrada": r["Entrada"], "Salida": r["Salida"], "Tipo Día": r["Tipo_Dia"], "Total Horas": h_tot,
+                    "HED": round(turn_hed, 2), "HEN": round(turn_hen, 2), "HEDF": round(turn_hedf, 2), "HENF": round(turn_henf, 2),
+                    "RN": round(turn_rn, 2), "RNF": round(turn_rnf, 2), "HDF (Fest. Hab.)": round(turn_hdf, 2), "Subtotal (COP)": round(sub, 2)
+                })
+            st.session_state['resultado_final'] = pd.DataFrame(detalles)
+            st.success("¡Liquidación procesada con éxito!")
+            st.dataframe(st.session_state['resultado_final'], use_container_width=True)
+    else:
+        st.info("Registra o carga turnos primero.")
+
+with tab3:
+    st.subheader("📊 Consolidado Mensual")
+    if 'resultado_final' in st.session_state and not st.session_state['resultado_final'].empty:
+        df_f = st.session_state['resultado_final']
+        df_f['Mes_Anno'] = pd.to_datetime(df_f['Entrada']).dt.to_period('M').astype(str)
+        meses_disp = sorted(df_f['Mes_Anno'].unique())
+        mes_sel = st.selectbox("Selecciona Periodo", meses_disp)
+        df_filtrado = df_f[df_f['Mes_Anno'] == mes_sel]
+        st.dataframe(df_filtrado.drop(columns=['Mes_Anno']), use_container_width=True)
+        tot_hrs = df_filtrado['Total Horas'].sum()
+        tot_pagar = df_filtrado['Subtotal (COP)'].sum()
+        st.metric("Total Horas", f"{tot_hrs:.2f} h")
+        st.metric(f"💰 Devengado ({mes_sel})", f"$ {tot_pagar:,.2f} COP")
+    else:
+        st.info("Procesa la liquidación para ver el consolidado.")
+        `
+    });
+  </script>
+</body>
+</html>
