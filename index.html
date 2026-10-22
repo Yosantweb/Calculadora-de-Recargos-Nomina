@@ -185,40 +185,41 @@
                     const sheet = workbook.Sheets[workbook.SheetNames[0]];
                     const json = XLSX.utils.sheet_to_json(sheet, {header: 1});
 
-                    // Leer desde la fila 1 (asumiendo encabezados en fila 0)
+                    // Leer desde la fila 1 (encabezados en fila 0)
                     for (let i = 1; i < json.length; i++) {
                         let row = json[i];
                         if (!row || !row[0]) continue;
 
-                        // Recorremos columnas en parejas: (1,2) para FechaEntrada/HoraEntrada y (3,4) para FechaSalida/HoraSalida, etc.
-                        // Según tu plantilla: Col 1 = Fecha Entrada, Col 2 = Hora Entrada, Col 3 = Fecha Salida, Col 4 = Hora Salida
-                        for (let colIdx = 1; colIdx < row.length; colIdx += 2) {
-                            let fEntVal = row[colIdx];
-                            let hEntVal = row[colIdx+1];
-                            
-                            if (fEntVal !== undefined && hEntVal !== undefined && fEntVal !== '' && hEntVal !== '') {
-                                let dEnt = typeof fEntVal === 'number' ? new Date(Math.round((fEntVal - (25567 + 2)) * 86400 * 1000)) : new Date(fEntVal);
-                                if (isNaN(dEnt)) continue;
+                        // Cada turno tiene par de columnas: (Turno Fecha, Hora)
+                        // En tu plantilla: 
+                        // Col 1: Turno1 Fecha, Col 2: Hora1
+                        // Col 3: Turno2 Fecha, Col 4: Hora2
+                        // Col 5: Turno3 Fecha, Col 6: Hora3
+                        let paresTurnos = [];
+                        for (let c = 1; c < row.length; c += 2) {
+                            let fVal = row[c];
+                            let hVal = row[c+1];
+                            if (fVal !== undefined && hVal !== undefined && fVal !== '' && hVal !== '' && !isNaN(parseFloat(hVal))) {
+                                let d = typeof fVal === 'number' ? new Date(Math.round((fVal - (25567 + 2)) * 86400 * 1000)) : new Date(fVal);
+                                let hNum = parseFloat(hVal);
+                                if (!isNaN(d.getTime())) {
+                                    d.setHours(Math.floor(hNum), Math.round((hNum % 1) * 60), 0, 0);
+                                    paresTurnos.push(d);
+                                }
+                            }
+                        }
 
-                                let horaNum = parseFloat(hEntVal);
-                                if (isNaN(horaNum)) continue;
-
-                                dEnt.setHours(Math.floor(horaNum), Math.round((horaNum % 1) * 60), 0, 0);
-
-                                // Buscamos la fecha y hora de salida en las siguientes 2 columnas (colIdx+2, colIdx+3)
-                                let fSalVal = row[colIdx+2];
-                                let hSalVal = row[colIdx+3];
-
-                                if (fSalVal !== undefined && hSalVal !== undefined && fSalVal !== '' && hSalVal !== '') {
-                                    let dSal = typeof fSalVal === 'number' ? new Date(Math.round((fSalVal - (25567 + 2)) * 86400 * 1000)) : new Date(fSalVal);
-                                    let hSalNum = parseFloat(hSalVal);
-                                    if (!isNaN(dSal) && !isNaN(hSalNum)) {
-                                        dSal.setHours(Math.floor(hSalNum), Math.round((hSalNum % 1) * 60), 0, 0);
-                                        let horas = (dSal - dEnt) / 3600000;
-                                        if (horas > 0) {
-                                            turnos.push({ entrada: dEnt.toISOString(), salida: dSal.toISOString(), horas: horas });
-                                        }
-                                    }
+                        // Agrupar los puntos de tiempo en parejas (Entrada -> Salida)
+                        for (let p = 0; p < paresTurnos.length; p += 2) {
+                            if (p + 1 < paresTurnos.length) {
+                                let dEnt = paresTurnos[p];
+                                let dSal = paresTurnos[p+1];
+                                if (dSal < dEnt) {
+                                    dSal.setDate(dSal.getDate() + 1);
+                                }
+                                let horas = (dSal - dEnt) / 3600000;
+                                if (horas > 0 && horas <= 24) {
+                                    turnos.push({ entrada: dEnt.toISOString(), salida: dSal.toISOString(), horas: horas });
                                 }
                             }
                         }
@@ -229,7 +230,7 @@
                         guardarEnMemoriaLocal(nombrePeriodoActual, turnosCargados);
                         procesarLiquidacion();
                     } else {
-                        alert("No se pudieron extraer turnos. Revisa que las columnas de fechas y horas estén bien diligenciadas.");
+                        alert("No se pudieron extraer turnos. Revisa que las fechas y horas estén bien diligenciadas.");
                     }
                 } catch(err) {
                     console.error(err);
